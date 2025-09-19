@@ -4,6 +4,7 @@ import com.bloxbean.cardano.client.account.Account;
 import com.bloxbean.cardano.client.address.Address;
 import com.bloxbean.cardano.client.cip.cip30.CIP30DataSigner;
 import com.bloxbean.cardano.client.cip.cip30.DataSignature;
+import com.bloxbean.cardano.client.cip.cip8.COSESign1;
 import com.bloxbean.cardano.client.common.model.Networks;
 import com.bloxbean.cardano.client.util.HexUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -50,5 +51,21 @@ public class TestBloxBean {
 
     boolean ok2 = CIP30DataSigner.INSTANCE.verify(received);
     System.out.println("Signature valid after round-trip? " + ok2);
+
+    // extra Log the wrapped data that is really signed to check it against normal ed25519 scheme
+    COSESign1 cose = ds.coseSign1();
+
+    // 1) The exact bytes that were signed (CBOR Sig_structure)
+    byte[] wrappedMsg = cose.signedData().serializeAsBytes();
+
+    // 2) The raw 64-byte Ed25519 signature (not the whole COSE_Sign1)
+    byte[] ed25519Sig = cose.signature();
+
+    // 3) The pubkey used
+    byte[] pub = account.publicKeyBytes();
+
+    System.out.println("wrapped cose msg  = " + HexUtil.encodeHexString(wrappedMsg));
+    System.out.println("ed25519 signature = " + HexUtil.encodeHexString(ed25519Sig));
+    System.out.println("ed25519 pub       = " + HexUtil.encodeHexString(pub));
   }
 }
