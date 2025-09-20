@@ -2,10 +2,13 @@ package org.bloxbeantest;
 
 import com.bloxbean.cardano.client.account.Account;
 import com.bloxbean.cardano.client.address.Address;
+import com.bloxbean.cardano.client.address.AddressProvider;
+import com.bloxbean.cardano.client.address.Credential;
 import com.bloxbean.cardano.client.cip.cip30.CIP30DataSigner;
 import com.bloxbean.cardano.client.cip.cip30.DataSignature;
 import com.bloxbean.cardano.client.cip.cip8.COSESign1;
 import com.bloxbean.cardano.client.common.model.Networks;
+import com.bloxbean.cardano.client.crypto.KeyGenUtil;
 import com.bloxbean.cardano.client.util.HexUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
@@ -67,5 +70,21 @@ public class TestBloxBean {
     System.out.println("wrapped cose msg  = " + HexUtil.encodeHexString(wrappedMsg));
     System.out.println("ed25519 signature = " + HexUtil.encodeHexString(ed25519Sig));
     System.out.println("ed25519 pub       = " + HexUtil.encodeHexString(pub));
+
+    // some extra adress stuff
+    String enterpriseAddress = account.enterpriseAddress();
+    System.out.println("Enterprise address: " + enterpriseAddress);
+
+    // from pubkey we can also get this enterprise address via
+    // 1) Blake2b-224 hash of the public key (28 bytes)
+    String vkhHex = KeyGenUtil.getKeyHash(pub);
+    byte[] vkh = HexUtil.decodeHexString(vkhHex);
+    // 2) wrap this hash in a credential
+    Credential paymentCred = Credential.fromKey(vkh);
+    // 3) build an address from it
+    Address enterprise = AddressProvider.getEntAddress(paymentCred, Networks.testnet());
+    // 4) bech encode it (this adds the addr_test bit)
+    String enterpriseAddress2 = enterprise.toBech32();
+    System.out.println("Enterprise address from pk directly: " + enterpriseAddress2);
   }
 }
