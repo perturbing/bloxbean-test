@@ -3,15 +3,14 @@ package org.bloxbeantest;
 import com.bloxbean.cardano.client.account.Account;
 import com.bloxbean.cardano.client.address.Address;
 import com.bloxbean.cardano.client.address.AddressProvider;
-import com.bloxbean.cardano.client.address.Credential;
 import com.bloxbean.cardano.client.cip.cip30.CIP30DataSigner;
 import com.bloxbean.cardano.client.cip.cip30.DataSignature;
-import com.bloxbean.cardano.client.cip.cip8.COSESign1;
 import com.bloxbean.cardano.client.common.model.Networks;
-import com.bloxbean.cardano.client.crypto.KeyGenUtil;
 import com.bloxbean.cardano.client.util.HexUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Optional;
 
 public class TestBloxBean {
   public static void main(String[] args) throws Exception {
@@ -55,36 +54,36 @@ public class TestBloxBean {
     boolean ok2 = CIP30DataSigner.INSTANCE.verify(received);
     System.out.println("Signature valid after round-trip? " + ok2);
 
-    // extra Log the wrapped data that is really signed to check it against normal ed25519 scheme
-    COSESign1 cose = ds.coseSign1();
+    // Given a received digitaal signature as the above json file, we check that
+    // the encoded pubkey hash in the addres below matched that of the hash derived
+    // from the pubkey in the signature
 
-    // 1) The exact bytes that were signed (CBOR Sig_structure)
-    byte[] wrappedMsg = cose.signedData().serializeAsBytes();
+    // ---- Extract pubkey from the received signature's COSE_Key (-2 'x' header)
+    byte[] pubFromSig = received.x();
+    System.out.println("pub (hex) from signature: " + HexUtil.encodeHexString(pubFromSig));
 
-    // 2) The raw 64-byte Ed25519 signature (not the whole COSE_Sign1)
-    byte[] ed25519Sig = cose.signature();
+    // ---- Compare pubkey hash (blake2b-224) with payment credential from a known address
+    String hardcodedEnterprise = "addr_test1vz68yh5lf6whh8lm394sfh0v4ex0whdqec2h9e2gry39wjqa3u3j7";
+    Address parsed = new Address(hardcodedEnterprise);
 
-    // 3) The pubkey used
-    byte[] pub = account.publicKeyBytes();
+    // 1) hash(pubkey) -> 28 bytes
+    byte[] pubHash = com.bloxbean.cardano.client.crypto.Blake2bUtil.blake2bHash224(pubFromSig);
+    // you can verify this hash also by dropping the address in https://cardanoscan.io/ (it will
+    // show the hex value)
+    System.out.println("pubkey blake2b-224 (hex): " + HexUtil.encodeHexString(pubHash));
 
-    System.out.println("wrapped cose msg  = " + HexUtil.encodeHexString(wrappedMsg));
-    System.out.println("ed25519 signature = " + HexUtil.encodeHexString(ed25519Sig));
-    System.out.println("ed25519 pub       = " + HexUtil.encodeHexString(pub));
+    // 2) extract payment credential hash from the address
+    Optional<byte[]> payCredHashOpt = AddressProvider.getPaymentCredentialHash(parsed);
+    if (payCredHashOpt.isEmpty()) {
+      System.out.println("Address has no payment credential (unexpected for enterprise/base).");
+      return;
+    }
+    byte[] paymentCredHash = payCredHashOpt.get();
+    System.out.println(
+        "payment credential from address (hex): " + HexUtil.encodeHexString(paymentCredHash));
 
-    // some extra adress stuff
-    String enterpriseAddress = account.enterpriseAddress();
-    System.out.println("Enterprise address: " + enterpriseAddress);
-
-    // from pubkey we can also get this enterprise address via
-    // 1) Blake2b-224 hash of the public key (28 bytes)
-    String vkhHex = KeyGenUtil.getKeyHash(pub);
-    byte[] vkh = HexUtil.decodeHexString(vkhHex);
-    // 2) wrap this hash in a credential
-    Credential paymentCred = Credential.fromKey(vkh);
-    // 3) build an address from it
-    Address enterprise = AddressProvider.getEntAddress(paymentCred, Networks.testnet());
-    // 4) bech encode it (this adds the addr_test bit)
-    String enterpriseAddress2 = enterprise.toBech32();
-    System.out.println("Enterprise address from pk directly: " + enterpriseAddress2);
+    // 3) compare
+    boolean matches = Arrays.equals(pubHash, paymentCredHash);
+    System.out.println("Does pubkey hash match address payment credential? " + matches);
   }
 }
