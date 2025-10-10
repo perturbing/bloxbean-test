@@ -17,9 +17,7 @@ import java.util.List;
 import java.util.concurrent.*;
 
 public class TestBloxBean {
-  private static final byte[] PAYLOAD = (
-      "I agree to abide by the terms and conditions as described in version 1-0 of the Midnight scavenger mining process: " +
-      "fefe36bf8e5fb4616cc568a8d7ba20ab70cabf2e87b8f86aecb96b02d83ed48f"
+  private static final byte[] PAYLOAD = ("I agree to abide by the terms and conditions as described in version 1-0 of the Midnight scavenger mining process: 281ba5f69f4b943e3fb8a20390878a232787a04e4be22177f2472b63df01c200"
   ).getBytes(StandardCharsets.UTF_8);
 
   public static void main(String[] args) throws Exception {
